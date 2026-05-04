@@ -30,11 +30,8 @@ export modpath="${AK3_DIR}/modules/vendor/lib/modules"
 # ──────────────────────────────────────────────
 #  DEFCONFIG
 # ──────────────────────────────────────────────
-DEFCONFIG="vendor/holi-qgki_defconfig"
-MERGE_CONFIGS=(
-    "arch/arm64/configs/vendor/ext_config/lineage_moto-holi.config"
-    "arch/arm64/configs/vendor/ext_config/moto-holi-fogos.config"
-)
+DEFCONFIG="vendor/wakacaw_defconfig"
+MERGE_CONFIGS=()
 
 # ──────────────────────────────────────────────
 #  COLORS & LOGGING
