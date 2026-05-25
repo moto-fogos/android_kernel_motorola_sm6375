@@ -30,11 +30,7 @@ export modpath="${AK3_DIR}/modules/vendor/lib/modules"
 # ──────────────────────────────────────────────
 #  DEFCONFIG
 # ──────────────────────────────────────────────
-DEFCONFIG="vendor/holi-qgki_defconfig"
-MERGE_CONFIGS=(
-    "arch/arm64/configs/vendor/ext_config/lineage_moto-holi.config"
-    "arch/arm64/configs/vendor/ext_config/moto-holi-fogos.config"
-)
+DEFCONFIG="vendor/wakacaw_defconfig"
 
 # ──────────────────────────────────────────────
 #  COLORS & LOGGING
@@ -102,20 +98,6 @@ build_kernel() {
 
     make O="$OUTPUT_DIR" ARCH=arm64 "$DEFCONFIG" -j"$(nproc)" \
         || die "Defconfig failed!"
-
-    log_info "Merging extra configs..."
-    for cfg in "${MERGE_CONFIGS[@]}"; do
-        if [ -f "$cfg" ]; then
-            scripts/kconfig/merge_config.sh -m -O "$OUTPUT_DIR" \
-                "$OUTPUT_DIR/.config" "$cfg" \
-                || log_warn "Failed to merge $cfg, skipping."
-            log_info "  Merged: $cfg"
-        else
-            log_warn "Config not found, skipping: $cfg"
-        fi
-    done
-
-    make O="$OUTPUT_DIR" ARCH=arm64 olddefconfig -j"$(nproc)"
 
     log_step "Building kernel with $(nproc) jobs..."
     local START END ELAPSED
