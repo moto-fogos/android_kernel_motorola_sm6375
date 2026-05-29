@@ -33,6 +33,42 @@ export modpath="${AK3_DIR}/modules/vendor/lib/modules"
 DEFCONFIG="vendor/wakacaw_defconfig"
 
 # ──────────────────────────────────────────────
+#  TELEGRAM CONFIG (.env)
+# ──────────────────────────────────────────────
+ENV_FILE="$(dirname "$(realpath "$0")")/.env"
+
+load_tg_config() {
+    if [ -f "$ENV_FILE" ]; then
+        # shellcheck disable=SC1090
+        source "$ENV_FILE"
+        log_info "Loaded Telegram config from .env"
+        return
+    fi
+
+    log_warn ".env not found, setting up Telegram config..."
+    echo ""
+
+    read -rp "  Enter Bot Token   : " input_token
+    read -rp "  Enter Chat ID     : " input_chat_id
+
+    [ -z "$input_token" ]   && die "Bot Token cannot be empty!"
+    [ -z "$input_chat_id" ] && die "Chat ID cannot be empty!"
+
+    cat > "$ENV_FILE" <<EOF
+TG_TOKEN="${input_token}"
+TG_CHAT_ID="${input_chat_id}"
+EOF
+    chmod 600 "$ENV_FILE"
+    log_ok "Config saved to .env (mode 600)"
+
+    TG_TOKEN="$input_token"
+    TG_CHAT_ID="$input_chat_id"
+}
+
+TG_TOKEN=""
+TG_CHAT_ID=""
+
+# ──────────────────────────────────────────────
 #  COLORS & LOGGING
 # ──────────────────────────────────────────────
 RED='\033[0;31m'
@@ -112,6 +148,10 @@ build_kernel() {
     printf "${GREEN}[OK]${NC}    Kernel built in %02dh %02dm %02ds\n" \
         $((ELAPSED / 3600)) $(((ELAPSED % 3600) / 60)) $((ELAPSED % 60))
 
+    # Save elapsed for use in Telegram
+    BUILD_TIME=$(printf "%02dh %02dm %02ds" \
+        $((ELAPSED / 3600)) $(((ELAPSED % 3600) / 60)) $((ELAPSED % 60)))
+
     [ -f "$OUTPUT_DIR/arch/arm64/boot/Image" ] \
         || die "Image not found after build!"
 }
@@ -169,6 +209,52 @@ package_zip() {
 }
 
 # ──────────────────────────────────────────────
+#  TELEGRAM
+# ──────────────────────────────────────────────
+tg_send_msg() {
+    local msg="$1"
+    curl -s -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+        -d chat_id="${TG_CHAT_ID}" \
+        -d parse_mode="Markdown" \
+        -d text="$msg" \
+        > /dev/null
+}
+
+tg_send_file() {
+    local file="$1"
+    local caption="$2"
+    curl -s -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendDocument" \
+        -F chat_id="${TG_CHAT_ID}" \
+        -F parse_mode="Markdown" \
+        -F caption="$caption" \
+        -F document=@"$file" \
+        > /dev/null
+}
+
+do_release() {
+    load_tg_config
+    [ -z "$TG_TOKEN" ]   && die "TG_TOKEN is empty!"
+    [ -z "$TG_CHAT_ID" ] && die "TG_CHAT_ID is empty!"
+    [ -f "$ZIPNAME" ]    || die "ZIP not found: $ZIPNAME"
+
+    local kver
+    kver=$(make kernelversion 2>/dev/null)
+    local zipsize
+    zipsize=$(du -sh "$ZIPNAME" | cut -f1)
+    local date_str
+    date_str=$(TZ=UTC date '+%Y-%m-%d %H:%M UTC')
+
+    log_step "Sending release to Telegram..."
+
+    local sha1
+    sha1=$(sha1sum "$ZIPNAME" | cut -d' ' -f1)
+
+    tg_send_file "$ZIPNAME" "*WakacaW | fogos* | Build took ${BUILD_TIME:-N/A}. | Kernel: \`${kver}\` | SHA1: \`${sha1}\`"
+
+    log_ok "Released to Telegram!"
+}
+
+# ──────────────────────────────────────────────
 #  MAIN
 # ──────────────────────────────────────────────
 main() {
@@ -179,13 +265,22 @@ main() {
     echo "╚══════════════════════════════════════╝"
     echo -e "${NC}"
 
-    [[ "$1" == "-c" || "$1" == "--clean" ]] && CLEAN=true || CLEAN=false
+    local CLEAN=false
+    local RELEASE=false
 
+    for arg in "$@"; do
+        case "$arg" in
+            -c|--clean)   CLEAN=true ;;
+            -r|--release) RELEASE=true ;;
+        esac
+    done
+    load_tg_config
     clone_toolchain
     clone_anykernel3
     $CLEAN && do_clean
     build_kernel
     package_zip
+    $RELEASE && do_release
 
     echo -e "\n${BOLD}${GREEN}✓ BUILD DONE!${NC}"
     echo -e "  ZIP: ${CYAN}$(pwd)/$ZIPNAME${NC}\n"
