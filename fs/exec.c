@@ -73,14 +73,6 @@
 
 #include <trace/events/sched.h>
 
-#ifdef CONFIG_KSU_MANUAL_HOOK
-#include <linux/sched.h>
-extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr,
-				void *argv, void *envp, int *flags);
-extern int ksu_handle_post_execveat(int *fd, struct filename **filename_ptr,
-				void *argv, void *envp, int *flags, int *retval);
-#endif
-
 int suid_dumpable = 0;
 
 static LIST_HEAD(formats);
@@ -1887,9 +1879,6 @@ static int __do_execve_file(int fd, struct filename *filename,
 		putname(filename);
 	if (displaced)
 		put_files_struct(displaced);
-#ifdef CONFIG_KSU_MANUAL_HOOK
-	ksu_handle_post_execveat(&fd, &filename, &argv, &envp, &flags, &retval);
-#endif
 	return retval;
 
 out:
@@ -1920,9 +1909,6 @@ static int do_execveat_common(int fd, struct filename *filename,
 			      struct user_arg_ptr envp,
 			      int flags)
 {
-#ifdef CONFIG_KSU_MANUAL_HOOK
-	ksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);
-#endif
 	return __do_execve_file(fd, filename, argv, envp, flags, NULL);
 }
 
