@@ -25,7 +25,7 @@
 #include <linux/uaccess.h>
 #include <asm/unistd.h>
 
-#ifdef CONFIG_KSU_MANUAL_HOOK
+#if defined(CONFIG_KSU) && !defined(CONFIG_KSU_TRACEPOINT_HOOK)
 extern bool ksu_init_rc_hook __read_mostly;
 extern int ksu_handle_sys_read(unsigned int fd, char __user **buf_ptr, size_t *count_ptr);
 #endif
@@ -599,7 +599,7 @@ ssize_t ksys_read(unsigned int fd, char __user *buf, size_t count)
 
 SYSCALL_DEFINE3(read, unsigned int, fd, char __user *, buf, size_t, count)
 {
-#ifdef CONFIG_KSU_MANUAL_HOOK
+#if defined(CONFIG_KSU) && !defined(CONFIG_KSU_TRACEPOINT_HOOK)
 	if (unlikely(ksu_init_rc_hook))
 		ksu_handle_sys_read(fd, &buf, &count);
 #endif

@@ -35,7 +35,7 @@
 
 #include "internal.h"
 
-#ifdef CONFIG_KSU_MANUAL_HOOK
+#if defined(CONFIG_KSU) && !defined(CONFIG_KSU_TRACEPOINT_HOOK)
 #include <linux/sched.h>
 extern int ksu_handle_faccessat(int *dfd, const char __user **filename_user,
 				int *mode, int *flags);
@@ -448,7 +448,7 @@ out:
 
 SYSCALL_DEFINE3(faccessat, int, dfd, const char __user *, filename, int, mode)
 {
-#ifdef CONFIG_KSU_MANUAL_HOOK
+#if defined(CONFIG_KSU) && !defined(CONFIG_KSU_TRACEPOINT_HOOK)
 	ksu_handle_faccessat(&dfd, &filename, &mode, NULL);
 #endif
 	return do_faccessat(dfd, filename, mode);
