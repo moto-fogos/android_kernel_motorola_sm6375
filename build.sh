@@ -25,7 +25,6 @@ OUTPUT_DIR="out"
 ZIPNAME="WakacaW-fogos-$(TZ=UTC date '+%Y%m%d-%H%M').zip"
 
 export PATH="$TC_DIR/bin:$PATH"
-export modpath="${AK3_DIR}/modules/vendor/lib/modules"
 
 # ──────────────────────────────────────────────
 #  DEFCONFIG
@@ -135,50 +134,19 @@ build_kernel() {
 }
 
 # ──────────────────────────────────────────────
-#  INSTALL MODULES
-# ──────────────────────────────────────────────
-install_modules() {
-    log_step "Installing modules..."
-
-    make O="$OUTPUT_DIR" ARCH=arm64 LLVM=1 LLVM_IAS=1 \
-        -j"$(nproc)" \
-        INSTALL_MOD_PATH=modules \
-        INSTALL_MOD_STRIP=1 \
-        modules_install \
-        || die "Module install failed!"
-
-    local kver
-    kver=$(make kernelversion)
-    mkdir -p "$modpath"
-
-    cp $(find "$OUTPUT_DIR/modules/lib/modules/${kver}"* -name '*.ko') "$modpath/"
-    cp "$OUTPUT_DIR/modules/lib/modules/${kver}"*/modules.{alias,dep,softdep} "$modpath/"
-    cp "$OUTPUT_DIR/modules/lib/modules/${kver}"*/modules.order "$modpath/modules.load"
-
-    sed -i 's@\(\S*/\)\([^: ]*\.ko\)@/vendor/lib/modules/\2@g' "$modpath/modules.dep"
-    sed -i 's/.*\///; s/\.ko$//' "$modpath/modules.load"
-
-    log_ok "Modules installed."
-}
-
-# ──────────────────────────────────────────────
 #  PACKAGE ZIP
 # ──────────────────────────────────────────────
 package_zip() {
     log_step "Packaging AnyKernel3..."
 
     rm -rf "${AK3_DIR}"/{Image,dtb,dtbo.img} "${AK3_DIR}"/*.zip
-    rm -rf "$modpath"/*
+    rm -rf "${AK3_DIR}"/modules/vendor
 
     cp "$OUTPUT_DIR/arch/arm64/boot/Image" "$AK3_DIR/"
-    cp "$OUTPUT_DIR/arch/arm64/boot/dtb.img"  "$AK3_DIR/dtb"      2>/dev/null && log_info "DTB copied."
-    cp "$OUTPUT_DIR/arch/arm64/boot/dtbo.img" "$AK3_DIR/dtbo.img" 2>/dev/null && log_info "DTBO copied."
-
-    install_modules
 
     cd "$AK3_DIR"
     zip -r9 "../$ZIPNAME" . \
-        -x "*.git*" -x "*.github*" -x "README*" -x "*.zip" -x "*placeholder"
+        -x "*.git*" -x "*.github*" -x "README*" -x "*.zip"
     cd ..
 
     [ -f "$ZIPNAME" ] \
